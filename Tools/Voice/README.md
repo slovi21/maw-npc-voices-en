@@ -261,7 +261,7 @@ template recording `t<key>~2.ogg` gets `t<key>~2-m.ogg` / `-f.ogg`). The
 module reads the name of the NPC in the dialog (`t.NPC.Name` of
 `events.EnterAnyNPC`), looks it up in `Data/Voices/names.tsv` — the whole name
 first (`queen catherine`), then its first word (`keri brown` → `keri`) — and
-plays the recording of that gender. `names.tsv` (1,427 names) is made by
+plays the recording of that gender. `names.tsv` (1,429 names) is made by
 `extract_texts.py --names` from the same resolver as rules 1 and 2, leaving out
 the names that were only guessed. If the NPC has no name or its name is not
 listed, the plain `<key>.ogg` plays. The log shows which one was used.

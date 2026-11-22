@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1 (2026-11-22)
+
+Fixes the gender of some NPCs.
+
+- Fixed: Andover Potbello was taken for a woman and heard the female voice. The portrait list (`pics.tsv`)
+  relied, for ten portraits, on names that stand in both the men's and the women's street-NPC lists (Pat, Robin,
+  Heather, ...). Those names no longer vote. `names.tsv` now lists Andover Potbello as male.
+- No new recordings; the package is the same size as 1.0.
+
 ## 1.0 (2026-11-19)
 
 First release as a separate add-on.

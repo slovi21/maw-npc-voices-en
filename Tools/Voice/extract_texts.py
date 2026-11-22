@@ -188,6 +188,19 @@ def load_firstnames(tables_dir: Path) -> dict:
     return out
 
 
+def ambiguous_firstnames(tables_dir: Path) -> frozenset:
+    """First names that the street-NPC lists give to both sexes (Pat, Robin, Heather, ...): no sure vote."""
+    both = {0: set(), 1: set()}
+    path = tables_dir / "NPC names.txt"
+    if path.exists():
+        for r in parse_table(path.read_bytes())[1:]:
+            for col in (0, 1):
+                name = decode(cell(r, col)).strip().lower()
+                if name:
+                    both[col].add(name)
+    return frozenset(both[0] & both[1])
+
+
 def load_speaker_table(path: Path) -> dict:
     """data/speakers.csv: name,gender[,scope]. scope "first" matches the first word of a name."""
     out = {}
@@ -215,8 +228,18 @@ def clean_name(name: str) -> str:
 class Genders:
     """Name -> 'm'|'f'. 'weight' says how sure: 2 = looked up, 1 = guessed male."""
 
-    def __init__(self, speaker_table: dict, firstnames: dict):
-        self.table, self.first = speaker_table, firstnames
+    def __init__(self, speaker_table: dict, firstnames: dict, ambiguous=frozenset()):
+        self.table, self.first, self.ambiguous = speaker_table, firstnames, ambiguous
+
+    def is_sure(self, name: str) -> bool:
+        """True unless the sex of the name rests only on a first name that the lists give to both sexes."""
+        key = clean_name(name).lower()
+        words = re.findall(r"[a-z.'\-]+", key)
+        if ("full", key) in self.table or ("first", words[0] if words else "") in self.table:
+            return True
+        if any(w in FEMALE_WORDS or w in MALE_WORDS for w in words):
+            return True
+        return not (words and words[0] in self.ambiguous)
 
     def of_name(self, name: str):
         """(gender, weight) or None for texts' speaker cells that are notes, not names."""
@@ -455,7 +478,7 @@ def build(game: Path, lod_rel: str = "Data/mmmerge.T.lod", speakers_csv: Path = 
             out.add(text.encode("ascii"), "lua", f"Lua {rel}:{line}", [])
 
     genders = Genders(load_speaker_table(speakers_csv or HERE / "data" / "speakers.csv"),
-                      load_firstnames(game / "Data" / "Tables"))
+                      load_firstnames(game / "Data" / "Tables"), ambiguous_firstnames(game / "Data" / "Tables"))
     for row in out.rows.values():
         row["gender"], row["basis"] = genders.of_text(row["key"], row["speakers"])
     return out, genders, lod
@@ -503,12 +526,13 @@ def export_names(genders: Genders, npcs: dict, path: Path) -> int:
 
 def export_pics(genders: Genders, npcs: dict, path: Path) -> int:
     """pics.tsv for the Lua module: 'portrait number<TAB>m|f' for portraits whose NPCs with a known gender agree.
+    NPCs whose sex rests only on a first name that the street-NPC lists give to both sexes do not vote.
 
     Used for an NPC whose name names.tsv does not know: the same portrait means the same sex."""
     votes = collections.defaultdict(collections.Counter)
     for npc in npcs.values():
         r = genders.of_name(npc["name"])
-        if r and r[1] == 2 and npc["pic"]:
+        if r and r[1] == 2 and npc["pic"] and genders.is_sure(npc["name"]):
             votes[npc["pic"]][r[0]] += 1
     lines = []
     for pic, c in sorted(votes.items()):
