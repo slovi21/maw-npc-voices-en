@@ -104,6 +104,24 @@ class GenderTests(unittest.TestCase):
         self.assertEqual(self.g.of_name("Pascella Tisk"), ("f", 2))        # data/speakers.csv
         self.assertEqual(self.g.of_name("Brekish Onefang"), ("m", 1))      # guessed
 
+    def test_portrait_vote_ignores_names_both_sexes_have(self):
+        # "Pat" stands in the male and the female list of the street-NPC names: its portrait must not decide a sex
+        g = ex.Genders(ex.load_speaker_table(HERE.parent / "data" / "speakers.csv"),
+                       {"pat": "f", "alice": "f", "aaron": "m"}, frozenset({"pat"}))
+        self.assertFalse(g.is_sure("Pat"))
+        self.assertTrue(g.is_sure("Alice Smith"))
+        self.assertTrue(g.is_sure("Queen Pat"))  # a title word is a sure hint
+        import tempfile
+        npcs = {1: {"name": "Pat", "pic": 372}, 2: {"name": "Alice Smith", "pic": 500}, 3: {"name": "Aaron Castro", "pic": 501}}
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "pics.tsv"
+            ex.export_pics(g, npcs, path)
+            self.assertEqual(path.read_text().split(), ["500", "f", "501", "m"])
+
+    def test_andover_potbello_is_male(self):
+        # his portrait (372) is male; a single unsure vote once made the module treat him as a woman
+        self.assertEqual(self.g.of_name("Andover Potbello"), ("m", 2))
+
     def test_notes_and_generic_roles_have_no_gender(self):
         for name in ("Expert Alchemy (3)", "Hint Alvar", "Monster hunt 1", "Guard", "13", ""):
             self.assertIsNone(self.g.of_name(name), name)
